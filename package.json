@@ -1,5 +1,5 @@
 {
-  "name": "@togul/sdk-next",
+  "name": "@togul/js",
   "version": "0.1.0",
   "description": "Official Node.js / Next.js SDK for Togul Feature Flag Service",
   "main": "dist/index.js",

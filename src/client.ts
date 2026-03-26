@@ -106,7 +106,7 @@ export class TogulClient {
       }
     }
 
-    throw lastError ?? new Error("@togul/sdk-next: all retries failed");
+    throw lastError ?? new Error("@togul/js: all retries failed");
   }
 
   invalidateCache(): void {

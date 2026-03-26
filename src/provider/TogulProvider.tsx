@@ -41,7 +41,7 @@ export function TogulProvider({ config, stream = false, children }: TogulProvide
 export function useTogulClient(): TogulClient {
   const ctx = useContext(TogulContext);
   if (!ctx) {
-    throw new Error("@togul/sdk-next: useTogulClient must be used within <TogulProvider>");
+    throw new Error("@togul/js: useTogulClient must be used within <TogulProvider>");
   }
   return ctx.client;
 }

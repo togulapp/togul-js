@@ -1,11 +1,11 @@
-# Togul Node.js / Next.js SDK
+# Togul JS SDK
 
-Official Node.js and Next.js SDK for evaluating [Togul](https://github.com/togulapp/togul) feature flags with built-in caching, retry logic, and React hooks.
+Official JavaScript / Next.js SDK for [Togul](https://github.com/togulapp/togul) feature flags with built-in caching, retry logic, and React hooks.
 
 ## Install
 
 ```bash
-npm install @togul/sdk-next
+npm install @togul/js
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ npm install @togul/sdk-next
 ### Server-side (Node.js / API Routes)
 
 ```typescript
-import { TogulClient } from "@togul/sdk-next/server";
+import { TogulClient } from "@togul/js/server";
 
 const client = new TogulClient({
   baseUrl: "https://api.togul.com",
@@ -35,7 +35,7 @@ Wrap your app with `TogulProvider`:
 // app/providers.tsx
 "use client";
 
-import { TogulProvider } from "@togul/sdk-next";
+import { TogulProvider } from "@togul/js";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -58,7 +58,7 @@ Use the `useFeatureFlag` hook:
 ```tsx
 "use client";
 
-import { useFeatureFlag } from "@togul/sdk-next/hooks";
+import { useFeatureFlag } from "@togul/js/hooks";
 
 export function Dashboard() {
   const { enabled, isLoading, error } = useFeatureFlag("new-dashboard", {
@@ -72,12 +72,12 @@ export function Dashboard() {
 }
 ```
 
-Or evaluate multiple flags at once:
+Evaluate multiple flags at once:
 
 ```tsx
 "use client";
 
-import { useFeatureFlags } from "@togul/sdk-next/hooks";
+import { useFeatureFlags } from "@togul/js/hooks";
 
 export function FeaturePanel() {
   const { flags, isLoading } = useFeatureFlags(
@@ -109,7 +109,7 @@ export function FeaturePanel() {
 
 ## Streaming (SSE)
 
-Enable real-time cache invalidation by setting `stream: true` on `TogulProvider` or calling `client.startStream()` manually:
+Enable real-time cache invalidation via `TogulProvider` or manually:
 
 ```typescript
 const client = new TogulClient({ ... });
@@ -123,6 +123,14 @@ client.stopStream();
 // Manual cache invalidation
 client.invalidateCache();
 client.invalidateFlag("specific-flag");
+```
+
+## Exports
+
+```
+@togul/js           - TogulProvider, useTogulClient, types
+@togul/js/hooks     - useFeatureFlag, useFeatureFlags
+@togul/js/server    - TogulClient, evaluateFlag, evaluateFlags
 ```
 
 ## License

@@ -3,7 +3,7 @@ export class TogulApiError extends Error {
   public readonly code: string;
 
   constructor(statusCode: number, code: string, message: string) {
-    const prefix = "@togul/sdk-next";
+    const prefix = "@togul/js";
     const parts = [`${prefix}: api error ${statusCode}`];
     if (code) parts.push(code);
     if (message) parts.push(message);
@@ -16,7 +16,7 @@ export class TogulApiError extends Error {
 
 export class TogulConfigError extends Error {
   constructor(message: string) {
-    super(`@togul/sdk-next: ${message}`);
+    super(`@togul/js: ${message}`);
     this.name = "TogulConfigError";
   }
 }
