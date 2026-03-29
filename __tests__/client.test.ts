@@ -1,17 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TogulClient } from "../src/client";
 import { TogulApiError, TogulConfigError } from "../src/errors";
+import type { TogulConfig } from "../src/types";
 
 const BASE_URL = "http://localhost:8080";
 const API_KEY = "test-key";
 const ENV = "test";
 
-function createClient(overrides: Partial<Parameters<typeof TogulClient.prototype.isEnabled>["0"]> = {}) {
+function createClient(overrides: Partial<TogulConfig> = {}) {
   return new TogulClient({
     baseUrl: BASE_URL,
     apiKey: API_KEY,
     environment: ENV,
     ...overrides,
+  });
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
   });
 }
 
@@ -28,10 +36,7 @@ describe("TogulClient", () => {
 
   it("should return flag value on successful evaluation", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ flag_key: "test", enabled: true, value: true, reason: "rule_match" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      jsonResponse({ flag_key: "test", enabled: true, value: true, reason: "rule_match" })
     );
 
     const client = createClient();
@@ -51,11 +56,8 @@ describe("TogulClient", () => {
   });
 
   it("should cache flag values", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ value: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+    const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve(jsonResponse({ value: true }))
     );
 
     const client = createClient();
@@ -66,11 +68,8 @@ describe("TogulClient", () => {
   });
 
   it("should use different cache keys for different contexts", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ value: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+    const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve(jsonResponse({ value: true }))
     );
 
     const client = createClient({ retryCount: 1 });
@@ -100,13 +99,8 @@ describe("TogulClient", () => {
   it("should retry on 429 responses", async () => {
     const fetchSpy = vi
       .spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response("{}", { status: 429 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ value: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      );
+      .mockResolvedValueOnce(jsonResponse({}, 429))
+      .mockResolvedValueOnce(jsonResponse({ value: true }));
 
     const client = createClient({ retryCount: 2 });
     const result = await client.isEnabled("test");
@@ -118,13 +112,8 @@ describe("TogulClient", () => {
   it("should retry on 5xx responses", async () => {
     const fetchSpy = vi
       .spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response("{}", { status: 500 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ value: false }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      );
+      .mockResolvedValueOnce(jsonResponse({}, 500))
+      .mockResolvedValueOnce(jsonResponse({ value: false }));
 
     const client = createClient({ retryCount: 2 });
     const result = await client.isEnabled("test");
@@ -134,11 +123,8 @@ describe("TogulClient", () => {
   });
 
   it("should not retry on 403 responses", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ code: "forbidden", message: "Access denied" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      })
+    const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve(jsonResponse({ code: "forbidden", message: "Access denied" }, 403))
     );
 
     const client = createClient({ retryCount: 3, fallbackMode: "fail-open" });
@@ -148,11 +134,8 @@ describe("TogulClient", () => {
   });
 
   it("should invalidate all cache entries", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ value: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+    const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve(jsonResponse({ value: true }))
     );
 
     const client = createClient({ retryCount: 1 });
@@ -164,11 +147,8 @@ describe("TogulClient", () => {
   });
 
   it("should invalidate specific flag cache entries", async () => {
-    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ value: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+    const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(() =>
+      Promise.resolve(jsonResponse({ value: true }))
     );
 
     const client = createClient({ retryCount: 1 });
@@ -179,8 +159,7 @@ describe("TogulClient", () => {
     await client.isEnabled("flag-a", { user_id: "u1" });
     await client.isEnabled("flag-b", { user_id: "u1" });
 
-    // flag-a fetched twice, flag-b once (cached)
-    // retryCount=1 means 1 attempt, but some overhead may cause extra calls
-    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    // flag-a fetched twice, flag-b once (cached after invalidateFlag("flag-a"))
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 });

@@ -37,20 +37,9 @@ export interface ApiErrorResponse {
   message: string;
 }
 
-export interface StreamEvent {
-  type: string;
-  flag_key?: string;
-  environment_id?: string;
-}
-
 export interface CacheEntry {
   value: boolean;
   expiresAt: number;
-}
-
-export interface TogulClientOptions {
-  /** Enable streaming for real-time cache invalidation (default: false) */
-  stream?: boolean;
 }
 
 export interface UseFeatureFlagOptions {

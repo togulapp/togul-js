@@ -7,19 +7,19 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
       "import": "./dist/hooks/index.mjs",
-      "require": "./dist/hooks/index.js",
-      "types": "./dist/hooks/index.d.ts"
+      "require": "./dist/hooks/index.js"
     },
     "./server": {
+      "types": "./dist/server/index.d.ts",
       "import": "./dist/server/index.mjs",
-      "require": "./dist/server/index.js",
-      "types": "./dist/server/index.d.ts"
+      "require": "./dist/server/index.js"
     }
   },
   "files": [
@@ -32,8 +32,8 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "prepare": "npm run build" 
- },
+    "prepare": "npm run build"
+  },
   "keywords": [
     "togul",
     "feature-flag",
@@ -65,5 +65,6 @@
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
-  }
+  },
+  "dependencies": {}
 }
