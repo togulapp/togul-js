@@ -27,6 +27,17 @@ const enabled = await client.isEnabled("new-dashboard", {
 });
 ```
 
+Or use the standalone helper functions (no client instance needed):
+
+```typescript
+import { evaluateFlag, evaluateFlags } from "@togul/js/server";
+
+const enabled = await evaluateFlag(config, "new-dashboard", { user_id: "user-123" });
+
+const results = await evaluateFlags(config, ["dark-mode", "beta-nav"], { user_id: "user-123" });
+// results => { "dark-mode": true, "beta-nav": false }
+```
+
 ### Client-side (React / Next.js)
 
 Wrap your app with `TogulProvider`:
@@ -61,8 +72,9 @@ Use the `useFeatureFlag` hook:
 import { useFeatureFlag } from "@togul/js/hooks";
 
 export function Dashboard() {
-  const { enabled, isLoading, error } = useFeatureFlag("new-dashboard", {
+  const { enabled, isLoading, error, refetch } = useFeatureFlag("new-dashboard", {
     context: { user_id: "user-123" },
+    fallback: false, // value to use while loading or on error
   });
 
   if (isLoading) return <p>Loading...</p>;
@@ -80,7 +92,7 @@ Evaluate multiple flags at once:
 import { useFeatureFlags } from "@togul/js/hooks";
 
 export function FeaturePanel() {
-  const { flags, isLoading } = useFeatureFlags(
+  const { flags, isLoading, error, refetch } = useFeatureFlags(
     ["dark-mode", "beta-nav", "new-search"],
     { context: { user_id: "user-123" } }
   );
@@ -95,6 +107,17 @@ export function FeaturePanel() {
 }
 ```
 
+Disable automatic fetching and trigger manually:
+
+```tsx
+const { enabled, refetch } = useFeatureFlag("new-dashboard", {
+  disabled: true, // won't fetch on mount
+});
+
+// fetch when ready
+await refetch();
+```
+
 ## Configuration
 
 | Option | Type | Default | Description |
@@ -106,6 +129,16 @@ export function FeaturePanel() {
 | `cacheTtl` | `number` | `30000` | Cache TTL (ms) |
 | `fallbackMode` | `"fail-open" \| "fail-closed"` | `"fail-closed"` | Behavior on error |
 | `retryCount` | `number` | `2` | Retry count for 429/5xx |
+
+## Hook Options
+
+Both `useFeatureFlag` and `useFeatureFlags` accept the same options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `context` | `Record<string, string>` | `{}` | User evaluation context |
+| `fallback` | `boolean` | `false` | Value returned while loading or on error |
+| `disabled` | `boolean` | `false` | Disable automatic fetching |
 
 ## Streaming (SSE)
 
@@ -123,14 +156,47 @@ client.stopStream();
 // Manual cache invalidation
 client.invalidateCache();
 client.invalidateFlag("specific-flag");
+
+// Subscribe to cache invalidation events
+const unsubscribe = client.onCacheInvalidated(() => {
+  console.log("Cache was invalidated, re-fetch your flags");
+});
+
+// Call unsubscribe() to stop listening
+unsubscribe();
 ```
+
+The SSE connection uses exponential backoff on disconnection (starting at 1s, up to 30s max). Authentication errors (401/403) will permanently abort the stream without retrying.
+
+## Error Handling
+
+The SDK exports two error classes:
+
+```typescript
+import { TogulApiError, TogulConfigError } from "@togul/js";
+
+try {
+  const enabled = await client.isEnabled("my-flag");
+} catch (err) {
+  if (err instanceof TogulApiError) {
+    console.error(err.statusCode); // HTTP status code (e.g. 404, 500)
+    console.error(err.code);       // API error code string
+  }
+  if (err instanceof TogulConfigError) {
+    // Invalid client configuration
+  }
+}
+```
+
+Retry behavior: requests are retried automatically on `429` (rate limit) and `5xx` (server) errors. Client errors (`4xx`, except 429) fail immediately without retry.
 
 ## Exports
 
 ```
-@togul/js           - TogulProvider, useTogulClient, types
-@togul/js/hooks     - useFeatureFlag, useFeatureFlags
-@togul/js/server    - TogulClient, evaluateFlag, evaluateFlags
+@togul/js        - TogulClient, TogulApiError, TogulConfigError,
+                   TogulProvider, useTogulClient, types
+@togul/js/hooks  - useFeatureFlag, useFeatureFlags
+@togul/js/server - TogulClient, evaluateFlag, evaluateFlags, types
 ```
 
 ## License
