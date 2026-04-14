@@ -16,7 +16,6 @@ npm install @togul/js
 import { TogulClient } from "@togul/js/server";
 
 const client = new TogulClient({
-  baseUrl: "https://api.togul.com",
   apiKey: "your-environment-api-key",
   environment: "production",
 });
@@ -122,13 +121,13 @@ await refetch();
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `baseUrl` | `string` | *required* | Togul API base URL |
 | `apiKey` | `string` | *required* | Environment API key |
 | `environment` | `string` | *required* | Environment identifier |
 | `timeout` | `number` | `5000` | Request timeout (ms) |
 | `cacheTtl` | `number` | `30000` | Cache TTL (ms) |
 | `fallbackMode` | `"fail-open" \| "fail-closed"` | `"fail-closed"` | Behavior on error |
 | `retryCount` | `number` | `2` | Retry count for 429/5xx |
+| `baseUrl` | `string` | `https://api.togul.io` | Override base URL (optional, for testing) |
 
 ## Hook Options
 
