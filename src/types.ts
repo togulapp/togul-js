@@ -1,8 +1,8 @@
 export type FallbackMode = "fail-open" | "fail-closed";
 
+const DEFAULT_BASE_URL = "https://api.togul.io";
+
 export interface TogulConfig {
-  /** Togul API base URL (e.g. https://api.togul.com) */
-  baseUrl: string;
   /** Environment API key */
   apiKey: string;
   /** Environment identifier (e.g. "production", "staging") */
@@ -15,6 +15,12 @@ export interface TogulConfig {
   fallbackMode?: FallbackMode;
   /** Max retry count for 429/5xx (default: 2) */
   retryCount?: number;
+  /** Override default base URL (optional, for testing) */
+  baseUrl?: string;
+}
+
+export function getBaseUrl(config: TogulConfig): string {
+  return config.baseUrl?.replace(/\/+$/, "") ?? DEFAULT_BASE_URL;
 }
 
 export type EvalContext = Record<string, string>;

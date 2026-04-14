@@ -6,21 +6,21 @@ import type {
   ApiErrorResponse,
   CacheEntry,
 } from "./types";
+import { getBaseUrl } from "./types";
 import { TogulApiError, TogulConfigError } from "./errors";
 
 export class TogulClient {
-  private readonly config: Required<TogulConfig>;
+  private readonly config: Required<Omit<TogulConfig, "baseUrl">> & { baseUrl: string };
   private cache = new Map<string, CacheEntry>();
   private streamController: AbortController | null = null;
   private listeners = new Set<() => void>();
 
   constructor(config: TogulConfig) {
-    if (!config.baseUrl) throw new TogulConfigError("baseUrl is required");
     if (!config.apiKey) throw new TogulConfigError("apiKey is required");
     if (!config.environment) throw new TogulConfigError("environment is required");
 
     this.config = {
-      baseUrl: config.baseUrl.replace(/\/+$/, ""),
+      baseUrl: getBaseUrl(config),
       apiKey: config.apiKey,
       environment: config.environment,
       timeout: config.timeout ?? 5000,

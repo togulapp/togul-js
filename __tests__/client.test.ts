@@ -9,9 +9,9 @@ const ENV = "test";
 
 function createClient(overrides: Partial<TogulConfig> = {}) {
   return new TogulClient({
-    baseUrl: BASE_URL,
     apiKey: API_KEY,
     environment: ENV,
+    baseUrl: BASE_URL,
     ...overrides,
   });
 }
@@ -29,9 +29,8 @@ describe("TogulClient", () => {
   });
 
   it("should throw TogulConfigError when required fields are missing", () => {
-    expect(() => new TogulClient({ baseUrl: "", apiKey: "k", environment: "e" })).toThrow(TogulConfigError);
-    expect(() => new TogulClient({ baseUrl: "u", apiKey: "", environment: "e" })).toThrow(TogulConfigError);
-    expect(() => new TogulClient({ baseUrl: "u", apiKey: "k", environment: "" })).toThrow(TogulConfigError);
+    expect(() => new TogulClient({ apiKey: "", environment: "e" })).toThrow(TogulConfigError);
+    expect(() => new TogulClient({ apiKey: "k", environment: "" })).toThrow(TogulConfigError);
   });
 
   it("should return flag value on successful evaluation", async () => {
