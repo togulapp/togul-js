@@ -23,6 +23,16 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function boolResponse(enabled: boolean, flagKey = "test") {
+  return jsonResponse({
+    flag_key: flagKey,
+    enabled,
+    value_type: "boolean",
+    value: enabled,
+    reason: "rule_match",
+  });
+}
+
 describe("TogulClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -35,7 +45,7 @@ describe("TogulClient", () => {
 
   it("should return flag value on successful evaluation", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      jsonResponse({ flag_key: "test", enabled: true, value: true, reason: "rule_match" })
+      jsonResponse({ flag_key: "test", enabled: true, value_type: "boolean", value: true, reason: "rule_match" })
     );
 
     const client = createClient();
@@ -99,7 +109,7 @@ describe("TogulClient", () => {
     const fetchSpy = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(jsonResponse({}, 429))
-      .mockResolvedValueOnce(jsonResponse({ value: true }));
+      .mockResolvedValueOnce(boolResponse(true));
 
     const client = createClient({ retryCount: 2 });
     const result = await client.isEnabled("test");
@@ -112,7 +122,7 @@ describe("TogulClient", () => {
     const fetchSpy = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(jsonResponse({}, 500))
-      .mockResolvedValueOnce(jsonResponse({ value: false }));
+      .mockResolvedValueOnce(boolResponse(false));
 
     const client = createClient({ retryCount: 2 });
     const result = await client.isEnabled("test");
