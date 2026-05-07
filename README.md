@@ -37,6 +37,36 @@ const results = await evaluateFlags(config, ["dark-mode", "beta-nav"], { user_id
 // results => { "dark-mode": true, "beta-nav": false }
 ```
 
+### Multi-variant flags (Server-side)
+
+Use typed methods to read flag values beyond boolean:
+
+```typescript
+import { TogulClient } from "@togul/js/server";
+
+const client = new TogulClient({ apiKey: "...", environment: "production" });
+const context = { user_id: "user-123" };
+
+// Typed convenience methods
+const theme  = await client.evaluateString("ui-theme", "default", context);
+const limit  = await client.evaluateNumber("rate-limit", 100, context);
+const flag   = await client.evaluateBool("beta-feature", false, context);
+const config = await client.evaluateJSON("feature-config", null, context);
+
+// Full result with metadata
+const result = await client.evaluateResult("checkout-flow", context);
+
+result.enabled;              // boolean
+result.flagKey;              // string
+result.valueType;            // "boolean" | "string" | "number" | "json"
+result.reason;               // string
+
+result.boolValue(false);     // boolean
+result.stringValue("");      // string
+result.numberValue(0);       // number
+result.jsonValue(null);      // T | null
+```
+
 ### Client-side (React / Next.js)
 
 Wrap your app with `TogulProvider`:
@@ -192,7 +222,7 @@ Retry behavior: requests are retried automatically on `429` (rate limit) and `5x
 ## Exports
 
 ```
-@togul/js        - TogulClient, TogulApiError, TogulConfigError,
+@togul/js        - TogulClient, EvaluateResult, TogulApiError, TogulConfigError,
                    TogulProvider, useTogulClient, types
 @togul/js/hooks  - useFeatureFlag, useFeatureFlags
 @togul/js/server - TogulClient, evaluateFlag, evaluateFlags, types
