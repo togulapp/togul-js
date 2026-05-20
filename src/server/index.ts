@@ -7,7 +7,8 @@ export async function evaluateFlag(
   context: EvalContext = {}
 ): Promise<boolean> {
   const client = new TogulClient(config);
-  return client.isEnabled(flagKey, context);
+  const result = await client.evaluate(flagKey, context);
+  return result.enabled;
 }
 
 export async function evaluateFlags(
@@ -18,8 +19,8 @@ export async function evaluateFlags(
   const client = new TogulClient(config);
   const results = await Promise.all(
     flagKeys.map(async (key) => {
-      const value = await client.isEnabled(key, context);
-      return [key, value] as const;
+      const result = await client.evaluate(key, context);
+      return [key, result.enabled] as const;
     })
   );
   return Object.fromEntries(results);

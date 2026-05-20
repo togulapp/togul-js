@@ -24,8 +24,8 @@ export function useFeatureFlags(
     try {
       const results = await Promise.all(
         flagKeys.map(async (key) => {
-          const value = await client.isEnabled(key, context);
-          return [key, value] as const;
+          const result = await client.evaluate(key, context);
+          return [key, result.enabled] as const;
         })
       );
 

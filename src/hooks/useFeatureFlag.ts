@@ -22,8 +22,8 @@ export function useFeatureFlag(
     setError(null);
 
     try {
-      const value = await client.isEnabled(flagKey, context);
-      setEnabled(value);
+      const result = await client.evaluate(flagKey, context);
+      setEnabled(result.enabled);
     } catch (err) {
       setError(err as Error);
       setEnabled(fallback);

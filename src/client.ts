@@ -25,26 +25,12 @@ export class TogulClient {
       environment: config.environment,
       timeout: config.timeout ?? 5000,
       cacheTtl: config.cacheTtl ?? 30000,
-      fallbackMode: config.fallbackMode ?? "fail-closed",
       retryCount: config.retryCount ?? 2,
     };
   }
 
-  /** Evaluate a flag and return whether it is enabled. For typed values, use evaluateResult(). */
-  async isEnabled(flagKey: string, context: EvalContext = {}): Promise<boolean> {
-    try {
-      const result = await this.evaluateResult(flagKey, context);
-      return result.enabled;
-    } catch (err) {
-      if (this.config.fallbackMode === "fail-open") {
-        throw err;
-      }
-      return false;
-    }
-  }
-
-  /** Evaluate a flag and return the full result with typed value accessors. */
-  async evaluateResult(flagKey: string, context: EvalContext = {}): Promise<EvaluateResult> {
+  /** Evaluate a flag and return the full result mirroring the API response. */
+  async evaluate(flagKey: string, context: EvalContext = {}): Promise<EvaluateResult> {
     const cacheKey = this.cacheKey(flagKey, context);
     const cached = this.cache.get(cacheKey);
 
@@ -57,7 +43,7 @@ export class TogulClient {
       this.cache.delete(cacheKey);
     }
 
-    const result = await this.evaluate(flagKey, context);
+    const result = await this.fetchEvaluation(flagKey, context);
     this.cache.set(cacheKey, {
       result,
       expiresAt: Date.now() + this.config.cacheTtl,
@@ -65,47 +51,7 @@ export class TogulClient {
     return result;
   }
 
-  /** Evaluate a boolean flag, returning fallback on error or type mismatch. */
-  async evaluateBool(flagKey: string, fallback: boolean, context: EvalContext = {}): Promise<boolean> {
-    try {
-      const result = await this.evaluateResult(flagKey, context);
-      return result.boolValue(fallback);
-    } catch {
-      return fallback;
-    }
-  }
-
-  /** Evaluate a string flag, returning fallback on error or type mismatch. */
-  async evaluateString(flagKey: string, fallback: string, context: EvalContext = {}): Promise<string> {
-    try {
-      const result = await this.evaluateResult(flagKey, context);
-      return result.stringValue(fallback);
-    } catch {
-      return fallback;
-    }
-  }
-
-  /** Evaluate a number flag, returning fallback on error or type mismatch. */
-  async evaluateNumber(flagKey: string, fallback: number, context: EvalContext = {}): Promise<number> {
-    try {
-      const result = await this.evaluateResult(flagKey, context);
-      return result.numberValue(fallback);
-    } catch {
-      return fallback;
-    }
-  }
-
-  /** Evaluate a JSON flag, returning fallback on error or type mismatch. */
-  async evaluateJSON<T = unknown>(flagKey: string, fallback: T, context: EvalContext = {}): Promise<T> {
-    try {
-      const result = await this.evaluateResult(flagKey, context);
-      return result.jsonValue(fallback);
-    } catch {
-      return fallback;
-    }
-  }
-
-  private async evaluate(flagKey: string, context: EvalContext): Promise<EvaluateResult> {
+  private async fetchEvaluation(flagKey: string, context: EvalContext): Promise<EvaluateResult> {
     const body: EvaluateRequest = {
       flag_key: flagKey,
       environment_key: this.config.environment,
@@ -147,13 +93,7 @@ export class TogulClient {
         }
 
         const data: EvaluateResponse = await response.json();
-        return new EvaluateResult(
-          data.flag_key,
-          data.enabled,
-          data.value_type,
-          data.value,
-          data.reason,
-        );
+        return new EvaluateResult(data.flag_key, data.enabled, data.value_type, data.value, data.reason);
       } catch (err) {
         if (err instanceof TogulApiError) throw err;
         lastError = err as Error;

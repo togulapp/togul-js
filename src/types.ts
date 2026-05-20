@@ -1,5 +1,3 @@
-export type FallbackMode = "fail-open" | "fail-closed";
-
 const DEFAULT_BASE_URL = "https://api.togul.io";
 
 export interface TogulConfig {
@@ -11,8 +9,6 @@ export interface TogulConfig {
   timeout?: number;
   /** Cache TTL in ms (default: 30000) */
   cacheTtl?: number;
-  /** Fallback behavior on error (default: "fail-closed") */
-  fallbackMode?: FallbackMode;
   /** Max retry count for 429/5xx (default: 2) */
   retryCount?: number;
   /** Override default base URL (optional, for testing) */
@@ -51,33 +47,9 @@ export class EvaluateResult {
     public readonly flagKey: string,
     public readonly enabled: boolean,
     public readonly valueType: ValueType | "",
-    private readonly rawValue: unknown,
+    public readonly value: unknown,
     public readonly reason: string,
   ) {}
-
-  /** Returns the flag value as boolean, or fallback if disabled or type mismatch. */
-  boolValue(fallback = false): boolean {
-    if (!this.enabled || this.valueType !== "boolean") return fallback;
-    return typeof this.rawValue === "boolean" ? this.rawValue : fallback;
-  }
-
-  /** Returns the flag value as string, or fallback if disabled or type mismatch. */
-  stringValue(fallback = ""): string {
-    if (!this.enabled || this.valueType !== "string") return fallback;
-    return typeof this.rawValue === "string" ? this.rawValue : fallback;
-  }
-
-  /** Returns the flag value as number, or fallback if disabled or type mismatch. */
-  numberValue(fallback = 0): number {
-    if (!this.enabled || this.valueType !== "number") return fallback;
-    return typeof this.rawValue === "number" ? this.rawValue : fallback;
-  }
-
-  /** Returns the flag value as T (JSON object/array), or fallback if disabled or type mismatch. */
-  jsonValue<T = unknown>(fallback: T): T {
-    if (!this.enabled || this.valueType !== "json") return fallback;
-    return this.rawValue != null ? (this.rawValue as T) : fallback;
-  }
 }
 
 export interface CacheEntry {

@@ -5,7 +5,6 @@ export { EvaluateResult } from "./types";
 export type {
   TogulConfig,
   EvalContext,
-  FallbackMode,
   ValueType,
   UseFeatureFlagOptions,
   UseFeatureFlagResult,
