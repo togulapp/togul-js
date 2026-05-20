@@ -20,10 +20,15 @@ const client = new TogulClient({
   environment: "production",
 });
 
-const enabled = await client.isEnabled("new-dashboard", {
+const result = await client.evaluate("new-dashboard", {
   user_id: "user-123",
   country: "TR",
 });
+
+console.log(result.enabled);   // true
+console.log(result.valueType); // "string"
+console.log(result.value);     // "dark_mode"
+console.log(result.reason);    // "rule_match"
 ```
 
 Or use the standalone helper functions (no client instance needed):
@@ -31,40 +36,23 @@ Or use the standalone helper functions (no client instance needed):
 ```typescript
 import { evaluateFlag, evaluateFlags } from "@togul/js/server";
 
-const enabled = await evaluateFlag(config, "new-dashboard", { user_id: "user-123" });
+const result = await evaluateFlag(config, "new-dashboard", { user_id: "user-123" });
+console.log(result.enabled); // true
 
 const results = await evaluateFlags(config, ["dark-mode", "beta-nav"], { user_id: "user-123" });
-// results => { "dark-mode": true, "beta-nav": false }
+// results => { "dark-mode": EvaluateResult, "beta-nav": EvaluateResult }
 ```
 
-### Multi-variant flags (Server-side)
+### EvaluateResult
 
-Use typed methods to read flag values beyond boolean:
+All evaluation methods return an `EvaluateResult` object:
 
 ```typescript
-import { TogulClient } from "@togul/js/server";
-
-const client = new TogulClient({ apiKey: "...", environment: "production" });
-const context = { user_id: "user-123" };
-
-// Typed convenience methods
-const theme  = await client.evaluateString("ui-theme", "default", context);
-const limit  = await client.evaluateNumber("rate-limit", 100, context);
-const flag   = await client.evaluateBool("beta-feature", false, context);
-const config = await client.evaluateJSON("feature-config", null, context);
-
-// Full result with metadata
-const result = await client.evaluateResult("checkout-flow", context);
-
-result.enabled;              // boolean
-result.flagKey;              // string
-result.valueType;            // "boolean" | "string" | "number" | "json"
-result.reason;               // string
-
-result.boolValue(false);     // boolean
-result.stringValue("");      // string
-result.numberValue(0);       // number
-result.jsonValue(null);      // T | null
+result.flagKey;    // string  — flag identifier
+result.enabled;    // boolean — whether the flag is on
+result.valueType;  // "boolean" | "string" | "number" | "json"
+result.value;      // unknown — the resolved value
+result.reason;     // string  — e.g. "rule_match", "default"
 ```
 
 ### Client-side (React / Next.js)
@@ -205,7 +193,7 @@ The SDK exports two error classes:
 import { TogulApiError, TogulConfigError } from "@togul/js";
 
 try {
-  const enabled = await client.isEnabled("my-flag");
+  const result = await client.evaluate("my-flag");
 } catch (err) {
   if (err instanceof TogulApiError) {
     console.error(err.statusCode); // HTTP status code (e.g. 404, 500)
