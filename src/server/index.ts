@@ -20,7 +20,7 @@ export async function evaluateFlag(
 ): Promise<boolean> {
   const client = getClient(config);
   const result = await client.evaluate(flagKey, context);
-  return result.enabled;
+  return result.enabled && Boolean(result.value);
 }
 
 export async function evaluateFlags(
@@ -32,7 +32,7 @@ export async function evaluateFlags(
   const results = await Promise.all(
     flagKeys.map(async (key) => {
       const result = await client.evaluate(key, context);
-      return [key, result.enabled] as const;
+      return [key, result.enabled && Boolean(result.value)] as const;
     })
   );
   return Object.fromEntries(results);
