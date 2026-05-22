@@ -1,6 +1,6 @@
 {
   "name": "@togul/js",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Official Node.js / Next.js SDK for Togul Feature Flag Service",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
