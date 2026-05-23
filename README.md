@@ -62,9 +62,10 @@ const showBanner = result?.enabled && result.value === true;
 | `apiKey` | `string` | *required* | Environment API key |
 | `environment` | `string` | *required* | Environment identifier |
 | `timeout` | `number` | `5000` | Request timeout (ms) |
-| `cacheTtl` | `number` | `30000` | Cache TTL (ms) |
+| `cacheTtl` | `number` | `30000` | Cache TTL (ms) — used only with the built-in in-memory cache |
 | `retryCount` | `number` | `2` | Retry count for 429/5xx |
 | `baseUrl` | `string` | `https://api.togul.io` | Override base URL (optional, for testing) |
+| `cacheAdapter` | `CacheAdapter` | `undefined` | External cache backend (e.g. Redis). Falls back to in-memory when omitted. |
 
 Passing an empty `apiKey` or `environment` throws `TogulConfigError` immediately — before any network call is made.
 
@@ -142,7 +143,7 @@ const [themeResult, navResult, searchResult] = await Promise.all([
 
 ## Cache Management
 
-Each `TogulClient` instance holds its own in-memory cache.
+By default each `TogulClient` instance uses an in-memory cache. Pass a `cacheAdapter` to share the cache across processes (e.g. multiple Node.js workers or k8s pods).
 
 ```typescript
 // Invalidate all cached results
@@ -157,6 +158,69 @@ const unsubscribe = client.onCacheInvalidated(() => {
 });
 
 unsubscribe(); // stop listening
+```
+
+### External Cache Adapter (Redis)
+
+Implement the `CacheAdapter` interface to plug in any shared cache:
+
+```typescript
+import type { CacheAdapter, EvaluateResult } from "@togul/js";
+
+export interface CacheAdapter {
+  get(key: string): Promise<EvaluateResult | null>;
+  set(key: string, result: EvaluateResult, ttlMs: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+  deleteByPrefix(prefix: string): Promise<void>;
+}
+```
+
+Example Redis adapter using [ioredis](https://github.com/redis/ioredis):
+
+```typescript
+import Redis from "ioredis";
+import { EvaluateResult } from "@togul/js";
+import type { CacheAdapter } from "@togul/js";
+
+export function createRedisCacheAdapter(redis: Redis): CacheAdapter {
+  return {
+    async get(key) {
+      const raw = await redis.get(`togul:${key}`);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      return new EvaluateResult(d.flagKey, d.enabled, d.valueType, d.value, d.reason);
+    },
+    async set(key, result, ttlMs) {
+      await redis.set(`togul:${key}`, JSON.stringify(result), "PX", ttlMs);
+    },
+    async delete(key) {
+      await redis.del(`togul:${key}`);
+    },
+    async clear() {
+      const keys = await redis.keys("togul:*");
+      if (keys.length) await redis.del(...keys);
+    },
+    async deleteByPrefix(prefix) {
+      const keys = await redis.keys(`togul:${prefix}*`);
+      if (keys.length) await redis.del(...keys);
+    },
+  };
+}
+```
+
+Pass the adapter when creating the client:
+
+```typescript
+import { TogulClient } from "@togul/js/server";
+import { createRedisCacheAdapter } from "./redis-cache";
+import redis from "./redis";
+
+const client = new TogulClient({
+  apiKey: process.env.TOGUL_API_KEY!,
+  environment: "production",
+  cacheAdapter: createRedisCacheAdapter(redis),
+});
 ```
 
 ## Streaming (SSE)
@@ -275,7 +339,7 @@ export function getTogulClient(): TogulClient {
 ## Exports
 
 ```
-@togul/js        - TogulClient, EvaluateResult, TogulApiError, TogulConfigError, types
+@togul/js        - TogulClient, EvaluateResult, TogulApiError, TogulConfigError, CacheAdapter, types
 @togul/js/server - TogulClient, types
 ```
 

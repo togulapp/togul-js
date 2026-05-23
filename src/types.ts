@@ -13,6 +13,8 @@ export interface TogulConfig {
   retryCount?: number;
   /** Override default base URL (optional, for testing) */
   baseUrl?: string;
+  /** External cache adapter (e.g. Redis). Falls back to in-memory cache when omitted. */
+  cacheAdapter?: CacheAdapter;
 }
 
 export function getBaseUrl(config: TogulConfig): string {
@@ -55,5 +57,13 @@ export class EvaluateResult {
 export interface CacheEntry {
   result: EvaluateResult;
   expiresAt: number;
+}
+
+export interface CacheAdapter {
+  get(key: string): Promise<EvaluateResult | null>;
+  set(key: string, result: EvaluateResult, ttlMs: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  clear(): Promise<void>;
+  deleteByPrefix(prefix: string): Promise<void>;
 }
 

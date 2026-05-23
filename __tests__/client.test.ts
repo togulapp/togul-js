@@ -215,6 +215,80 @@ describe("TogulClient", () => {
     });
   });
 
+  // ── CacheAdapter ──────────────────────────────────────────────────────────
+  describe("cacheAdapter", () => {
+    function createAdapter() {
+      const store = new Map<string, { result: unknown; expiresAt: number }>();
+      return {
+        get: vi.fn(async (key: string) => {
+          const entry = store.get(key);
+          if (!entry || Date.now() > entry.expiresAt) return null;
+          return entry.result;
+        }),
+        set: vi.fn(async (key: string, result: unknown, ttlMs: number) => {
+          store.set(key, { result, expiresAt: Date.now() + ttlMs });
+        }),
+        delete: vi.fn(async (key: string) => { store.delete(key); }),
+        clear: vi.fn(async () => { store.clear(); }),
+        deleteByPrefix: vi.fn(async (prefix: string) => {
+          for (const key of store.keys()) {
+            if (key.startsWith(prefix)) store.delete(key);
+          }
+        }),
+        _store: store,
+      };
+    }
+
+    it("uses adapter.get on evaluate", async () => {
+      const adapter = createAdapter();
+      vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(evalBody()));
+      const client = createClient({ cacheAdapter: adapter });
+      await client.evaluate("flag");
+      expect(adapter.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses adapter.set after fetch", async () => {
+      const adapter = createAdapter();
+      vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(evalBody()));
+      const client = createClient({ cacheAdapter: adapter });
+      await client.evaluate("flag");
+      expect(adapter.set).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns adapter cached result without fetching", async () => {
+      const adapter = createAdapter();
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(evalBody()));
+      const client = createClient({ cacheAdapter: adapter });
+      await client.evaluate("flag");
+      await client.evaluate("flag");
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("invalidateCache calls adapter.clear", async () => {
+      const adapter = createAdapter();
+      vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(evalBody()));
+      const client = createClient({ cacheAdapter: adapter });
+      client.invalidateCache();
+      await vi.waitFor(() => expect(adapter.clear).toHaveBeenCalledTimes(1));
+    });
+
+    it("invalidateFlag calls adapter.deleteByPrefix", async () => {
+      const adapter = createAdapter();
+      vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(evalBody()));
+      const client = createClient({ cacheAdapter: adapter });
+      client.invalidateFlag("my-flag");
+      await vi.waitFor(() => expect(adapter.deleteByPrefix).toHaveBeenCalledWith("my-flag:"));
+    });
+
+    it("falls back to in-memory cache when no adapter provided", async () => {
+      const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(mockResponse(evalBody()));
+      const client = createClient();
+      await client.evaluate("flag");
+      await client.evaluate("flag");
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ── Retry ─────────────────────────────────────────────────────────────────
   describe("retry", () => {
     it("retries on 429 and succeeds on second attempt", async () => {

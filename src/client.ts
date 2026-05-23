@@ -5,13 +5,17 @@ import type {
   EvaluateResponse,
   ApiErrorResponse,
   CacheEntry,
+  CacheAdapter,
 } from "./types";
 import { EvaluateResult, getBaseUrl } from "./types";
 import { TogulApiError, TogulConfigError } from "./errors";
 
 export class TogulClient {
-  private readonly config: Required<Omit<TogulConfig, "baseUrl">> & { baseUrl: string };
-  private cache = new Map<string, CacheEntry>();
+  private readonly config: Required<Omit<TogulConfig, "baseUrl" | "cacheAdapter">> & {
+    baseUrl: string;
+    cacheAdapter: CacheAdapter | null;
+  };
+  private memCache = new Map<string, CacheEntry>();
   private streamController: AbortController | null = null;
   private listeners = new Set<() => void>();
 
@@ -26,28 +30,33 @@ export class TogulClient {
       timeout: config.timeout ?? 5000,
       cacheTtl: config.cacheTtl ?? 30000,
       retryCount: config.retryCount ?? 2,
+      cacheAdapter: config.cacheAdapter ?? null,
     };
   }
 
   /** Evaluate a flag and return the full result mirroring the API response. */
   async evaluate(flagKey: string, context: EvalContext = {}): Promise<EvaluateResult> {
-    const cacheKey = this.cacheKey(flagKey, context);
-    const cached = this.cache.get(cacheKey);
+    const key = this.cacheKey(flagKey, context);
 
-    // Empty valueType means stale/invalid entry — treat as cache miss.
-    if (cached && Date.now() < cached.expiresAt && cached.result.valueType !== "") {
-      return cached.result;
-    }
-
-    if (cached) {
-      this.cache.delete(cacheKey);
+    if (this.config.cacheAdapter) {
+      const cached = await this.config.cacheAdapter.get(key);
+      if (cached) return cached;
+    } else {
+      const cached = this.memCache.get(key);
+      if (cached && Date.now() < cached.expiresAt && cached.result.valueType !== "") {
+        return cached.result;
+      }
+      if (cached) this.memCache.delete(key);
     }
 
     const result = await this.fetchEvaluation(flagKey, context);
-    this.cache.set(cacheKey, {
-      result,
-      expiresAt: Date.now() + this.config.cacheTtl,
-    });
+
+    if (this.config.cacheAdapter) {
+      await this.config.cacheAdapter.set(key, result, this.config.cacheTtl);
+    } else {
+      this.memCache.set(key, { result, expiresAt: Date.now() + this.config.cacheTtl });
+    }
+
     return result;
   }
 
@@ -104,14 +113,21 @@ export class TogulClient {
   }
 
   invalidateCache(): void {
-    this.cache.clear();
+    if (this.config.cacheAdapter) {
+      void this.config.cacheAdapter.clear();
+    } else {
+      this.memCache.clear();
+    }
     this.notifyListeners();
   }
 
   invalidateFlag(flagKey: string): void {
-    for (const key of this.cache.keys()) {
-      if (key.startsWith(`${flagKey}:`)) {
-        this.cache.delete(key);
+    const prefix = `${flagKey}:`;
+    if (this.config.cacheAdapter) {
+      void this.config.cacheAdapter.deleteByPrefix(prefix);
+    } else {
+      for (const key of this.memCache.keys()) {
+        if (key.startsWith(prefix)) this.memCache.delete(key);
       }
     }
     this.notifyListeners();
