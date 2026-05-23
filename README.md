@@ -36,11 +36,11 @@ Or use the standalone helper functions (no client instance needed):
 ```typescript
 import { evaluateFlag, evaluateFlags } from "@togul/js/server";
 
-const result = await evaluateFlag(config, "new-dashboard", { user_id: "user-123" });
-console.log(result.enabled); // true
+const enabled = await evaluateFlag(config, "new-dashboard", { user_id: "user-123" });
+console.log(enabled); // true
 
 const results = await evaluateFlags(config, ["dark-mode", "beta-nav"], { user_id: "user-123" });
-// results => { "dark-mode": EvaluateResult, "beta-nav": EvaluateResult }
+// results => { "dark-mode": true, "beta-nav": false }
 ```
 
 ### EvaluateResult
@@ -143,7 +143,6 @@ await refetch();
 | `environment` | `string` | *required* | Environment identifier |
 | `timeout` | `number` | `5000` | Request timeout (ms) |
 | `cacheTtl` | `number` | `30000` | Cache TTL (ms) |
-| `fallbackMode` | `"fail-open" \| "fail-closed"` | `"fail-closed"` | Behavior on error |
 | `retryCount` | `number` | `2` | Retry count for 429/5xx |
 | `baseUrl` | `string` | `https://api.togul.io` | Override base URL (optional, for testing) |
 
