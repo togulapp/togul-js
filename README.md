@@ -244,6 +244,78 @@ unsubscribe();
 
 The SSE connection uses exponential backoff on disconnection (starting at 1s, up to 30s max). Authentication errors (401/403) abort the stream without retrying.
 
+> Streaming needs a long-lived process. It does not work in edge runtimes — see [Edge Runtimes](#edge-runtimes).
+
+## Edge Runtimes
+
+`@togul/js/edge` targets request-scoped runtimes: Cloudflare Workers, Vercel Edge Functions, Next.js middleware, Deno Deploy.
+
+```typescript
+import { TogulEdgeClient } from "@togul/js/edge";
+```
+
+It is a thin facade over `TogulClient`, not a separate implementation — evaluation, caching and retry run the same code. What differs is the surface, and two runtime realities you should plan around.
+
+**There is no streaming, and no real-time invalidation.** `startStream()` and `stopStream()` are deliberately absent from `TogulEdgeClient`. An edge isolate is destroyed once it has produced a response, so an SSE connection dies with it and no invalidation event ever arrives. A flag change reaches your code only when the cached entry expires: `cacheTtl` is your staleness budget, not a refresh interval.
+
+**The cache is ephemeral and per-isolate.** Isolates are short-lived and geographically distributed, so many requests start cold. Under Node, `cacheTtl: 30000` means roughly one API call per 30s. At the edge it means one call per new isolate — size your evaluation quota against traffic and region spread, not against the TTL.
+
+### Next.js middleware
+
+```typescript
+// middleware.ts
+import { NextResponse, type NextRequest } from "next/server";
+import { TogulEdgeClient } from "@togul/js/edge";
+
+const togul = new TogulEdgeClient({
+  apiKey: process.env.TOGUL_API_KEY!,
+  environment: process.env.TOGUL_ENVIRONMENT ?? "production",
+});
+
+export async function middleware(request: NextRequest) {
+  const result = await togul.evaluate("new-checkout", {
+    user_id: request.cookies.get("uid")?.value ?? "anonymous",
+  });
+
+  if (result.value === true) {
+    return NextResponse.rewrite(new URL("/checkout/v2", request.url));
+  }
+  return NextResponse.next();
+}
+
+export const config = { matcher: "/checkout" };
+```
+
+Declaring the client at module scope lets it survive as long as the isolate does, so requests handled by the same isolate share its cache.
+
+### Cloudflare Workers
+
+```typescript
+// src/index.ts
+import { TogulEdgeClient } from "@togul/js/edge";
+
+export default {
+  async fetch(request: Request, env: { TOGUL_API_KEY: string }): Promise<Response> {
+    const togul = new TogulEdgeClient({
+      apiKey: env.TOGUL_API_KEY,
+      environment: "production",
+    });
+
+    const result = await togul.evaluate("new-checkout", {
+      country: request.headers.get("CF-IPCountry") ?? "unknown",
+    });
+
+    return Response.json({ variant: result.value === true ? "v2" : "v1" });
+  },
+};
+```
+
+Workers pass secrets through `env` rather than `process.env`, so the client is constructed per request here. Each construction starts with an empty cache.
+
+### Verifying compatibility
+
+The edge entry is exercised against a real edge sandbox in CI, not merely by inspection: `__tests__/edge.test.ts` bundles it with `platform: "neutral"` (no Node shims, so a Node built-in fails the build) and runs it inside `@edge-runtime/vm`, asserting that `process`, `Buffer` and `require` are genuinely absent, that `evaluate()` round-trips, that the cache suppresses a repeat call, and that the bundle stays under 10 KB gzipped.
+
 ## Error Handling
 
 ```typescript
@@ -341,6 +413,7 @@ export function getTogulClient(): TogulClient {
 ```
 @togul/js        - TogulClient, EvaluateResult, TogulApiError, TogulConfigError, CacheAdapter, types
 @togul/js/server - TogulClient, types
+@togul/js/edge   - TogulEdgeClient, EvaluateResult, TogulApiError, TogulConfigError, types (ESM only, no streaming)
 ```
 
 ## License

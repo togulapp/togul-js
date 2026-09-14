@@ -21,14 +21,25 @@ npx vitest run __tests__/client.test.ts
 
 ### Entry Points
 
-Two published subpaths, one underlying class:
+Three published subpaths, one underlying class:
 
 | Import | Entry | Purpose |
 |--------|-------|---------|
 | `@togul/js` | `src/index.ts` | Universal — exports `TogulClient`, `EvaluateResult`, `TogulApiError`, `TogulConfigError`, types |
 | `@togul/js/server` | `src/server/index.ts` | Server-only alias — re-exports `TogulClient` and types from `../client` |
+| `@togul/js/edge` | `src/edge/index.ts` | Request-scoped runtimes — exports `TogulEdgeClient`, a facade with no stream API. **ESM only.** |
 
 `tsup`'s `splitting: true` extracts shared code into a chunk so `client.ts` isn't duplicated across CJS/ESM bundles.
+
+`tsup.config.ts` exports an **array** of two configs, because `format` is per-config: the main entries emit CJS + ESM, the edge entry emits ESM only (edge runtimes load ESM, and a CJS artifact there is dead weight that invites the wrong `require` condition). The second config sets `clean: false` — the first has already written `dist/` by the time it runs.
+
+### Why `TogulEdgeClient` exists
+
+It is a ~25-line delegating facade over `TogulClient`, not a second implementation — no logic is duplicated. Its only job is to remove `startStream()` / `stopStream()` from the surface at **runtime**, not just in types.
+
+An edge isolate is destroyed once it has produced a response, so an SSE connection cannot outlive the request. Re-exporting `TogulClient` at `/edge` would let callers write `await client.startStream()` that throws nothing and does nothing — a silent no-op, which is the worst of the available failure modes. Type-only narrowing was rejected for the same reason: a cast would get past it.
+
+If you add a method to `TogulClient`, decide explicitly whether it belongs on the edge facade. Anything that assumes a long-lived process does not.
 
 ### Core Files
 
@@ -55,4 +66,8 @@ Response: `{ flag_key, enabled, value_type, value, reason }`.
 
 ### Testing
 
-Tests mock `global.fetch` via `vi.spyOn`. The `createClient()` helper always passes `baseUrl: "http://localhost:8080"` to avoid hitting production. No test fixtures or setup files — test helpers are defined inline in `__tests__/client.test.ts`.
+Tests mock `global.fetch` via `vi.spyOn`. The `createClient()` helper always passes `baseUrl: "http://localhost:8080"` to avoid hitting production. No fixtures or setup files — helpers are defined inline per test file.
+
+`vitest.config.ts` pins `environment: "node"`. Do not remove it: with it unset the runner resolved to `jsdom` and failed at startup once a stale dependency tree was pruned, even though nothing in this package needs a DOM.
+
+`__tests__/edge.test.ts` is different in kind from the others. It bundles `src/edge/index.ts` on the fly with esbuild at `platform: "neutral"` (no Node shims, so a Node built-in fails the build rather than silently working) and runs the result inside `@edge-runtime/vm`. It asserts the sandbox genuinely lacks `process` / `Buffer` / `require` first — without that check the rest would prove nothing, since code with a Node dependency passes fine under `node`. It bundles rather than reading `dist/` so it never depends on `npm run build` having run: a test that skips itself when an artifact is missing is a test that passes while proving nothing.

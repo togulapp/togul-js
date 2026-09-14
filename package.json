@@ -15,6 +15,10 @@
       "types": "./dist/server/index.d.ts",
       "import": "./dist/server/index.mjs",
       "require": "./dist/server/index.js"
+    },
+    "./edge": {
+      "types": "./dist/edge/index.d.mts",
+      "import": "./dist/edge/index.mjs"
     }
   },
   "files": [
@@ -40,9 +44,10 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "esbuild": "^0.28.2",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
-  },
-  "dependencies": {}
+  }
 }
