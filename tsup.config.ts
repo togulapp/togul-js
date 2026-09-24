@@ -8,6 +8,7 @@ export default defineConfig([
     entry: {
       index: "src/index.ts",
       "server/index": "src/server/index.ts",
+      "openfeature/index": "src/openfeature/index.ts",
     },
     format: ["cjs", "esm"],
     dts: true,

@@ -28,6 +28,7 @@ Three published subpaths, one underlying class:
 | `@togul/js` | `src/index.ts` | Universal — exports `TogulClient`, `EvaluateResult`, `TogulApiError`, `TogulConfigError`, types |
 | `@togul/js/server` | `src/server/index.ts` | Server-only alias — re-exports `TogulClient` and types from `../client` |
 | `@togul/js/edge` | `src/edge/index.ts` | Request-scoped runtimes — exports `TogulEdgeClient`, a facade with no stream API. **ESM only.** |
+| `@togul/js/openfeature` | `src/openfeature/index.ts` | OpenFeature server provider — `TogulProvider` adapts `evaluate()` to typed resolvers. `@openfeature/server-sdk` is an **optional peer dependency**, externalized by tsup; nothing else may import it. Mirrors `togul-php/src/OpenFeature/TogulProvider.php`. Browsers use the generic OFREP web provider against the API instead. |
 
 `tsup`'s `splitting: true` extracts shared code into a chunk so `client.ts` isn't duplicated across CJS/ESM bundles.
 

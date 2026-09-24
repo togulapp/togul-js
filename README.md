@@ -408,12 +408,62 @@ export function getTogulClient(): TogulClient {
 }
 ```
 
+## OpenFeature
+
+`TogulProvider` plugs Togul into the [OpenFeature](https://openfeature.dev) Node.js server SDK, so application code can depend on the vendor-neutral API instead of `TogulClient`.
+
+```bash
+npm install @openfeature/server-sdk
+```
+
+```ts
+import { OpenFeature } from "@openfeature/server-sdk";
+import { TogulClient } from "@togul/js";
+import { TogulProvider } from "@togul/js/openfeature";
+
+const togul = new TogulClient({ apiKey: process.env.TOGUL_API_KEY!, environment: "production" });
+await togul.startStream(); // optional: SSE cache invalidation
+
+await OpenFeature.setProviderAndWait(new TogulProvider(togul));
+const client = OpenFeature.getClient();
+const context = { targetingKey: "user-42", country: "TR" };
+
+await client.getBooleanValue("new-dashboard", false, context);
+await client.getStringValue("theme", "light", context);
+await client.getNumberValue("max-items", 10, context);
+await client.getObjectValue("limits", {}, context);
+```
+
+The provider only adapts `TogulClient.evaluate()`; caching, retries and SSE invalidation are unchanged. Every cache invalidation is re-emitted as `PROVIDER_CONFIGURATION_CHANGED`. Context values are flattened to strings (objects and arrays JSON-encoded, dates as ISO 8601) and `targetingKey` is sent as `user_id` unless `user_id` is set; pass `{ targetingKeyAttribute: "account_id" }` as the second argument to change that.
+
+| Togul | OpenFeature |
+|---|---|
+| `reason: rule_match` | `TARGETING_MATCH` |
+| `reason: default` | `DEFAULT` |
+| `enabled: false` | caller's default value, reason `DISABLED` |
+| `404 evaluate.flag_not_found` | caller's default, `FLAG_NOT_FOUND` |
+| value does not fit the requested type | caller's default, `TYPE_MISMATCH` |
+| any other error | caller's default, `GENERAL` |
+
+**In the browser**, use the generic OFREP web provider instead: Togul implements the [OpenFeature Remote Evaluation Protocol](https://openfeature.dev/docs/reference/other-technologies/ofrep/), including real-time updates over SSE.
+
+```ts
+import { OpenFeature } from "@openfeature/web-sdk";
+import { OFREPWebProvider } from "@openfeature/ofrep-web-provider";
+
+OpenFeature.setProvider(new OFREPWebProvider({
+  baseUrl: "https://api.togul.io",
+  headers: [["X-API-Key", "your-sdk-scoped-api-key"]],
+}));
+```
+
 ## Exports
 
 ```
-@togul/js        - TogulClient, EvaluateResult, TogulApiError, TogulConfigError, CacheAdapter, types
-@togul/js/server - TogulClient, types
-@togul/js/edge   - TogulEdgeClient, EvaluateResult, TogulApiError, TogulConfigError, types (ESM only, no streaming)
+@togul/js             - TogulClient, EvaluateResult, TogulApiError, TogulConfigError, CacheAdapter, types
+@togul/js/server      - TogulClient, types
+@togul/js/edge        - TogulEdgeClient, EvaluateResult, TogulApiError, TogulConfigError, types (ESM only, no streaming)
+@togul/js/openfeature - TogulProvider, TogulProviderOptions (needs @openfeature/server-sdk)
 ```
 
 ## License
